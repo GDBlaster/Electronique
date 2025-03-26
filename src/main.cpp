@@ -20,15 +20,23 @@ bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
 bool _tag_found = false;
 
+uint64_t convertUIDToInt(const uint8_t *uid) {
+  uint64_t uidValue = 0;
+  for (int i = 0; i < 8; i++) {
+      uidValue = (uidValue << 8) | uid[i];
+  }
+  return uidValue;
+}
+
 void Blink(int count, int led)
 {
   int i = 0;
   while (i < count)
   {
     digitalWrite(led, HIGH);
-    delay(500);
+    delay(250);
     digitalWrite(led, LOW);
-    delay(500);
+    delay(250);
     i++;
   }
 }
@@ -91,13 +99,11 @@ void loop()
   if (rfid_tag_present && !rfid_tag_present_prev)
   {
     Serial.println("Tag found");
+    uint64_t uid = convertUIDToInt(mfrc522.uid.uidByte);
     mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
+    Serial.println(uid);
     blinkgreen(3);
-    Serial.print("UID: ");
-    for (byte i = 0; i < mfrc522.uid.size; i++) {
-        Serial.print(mfrc522.uid.uidByte[i], DEC); 
-    }
-    Serial.println();
+    
   }
 
   // falling edge
