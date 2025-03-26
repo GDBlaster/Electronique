@@ -1,7 +1,13 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <MFRC522.h>
+#include "WiFi.h"
+#include "HTTPClient.h"
+#include <ArduinoJson.h>
 
+#define SSID "WifiCadeau"
+#define PASSWD "CadeauWifi"
+#define URL "http://ilann-weather-api.glitch.me/Lyon"
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
 
@@ -17,6 +23,14 @@ void setup() {
 	while (!Serial);
 	SPI.begin();
 	mfrc522.PCD_Init();		// Init MFRC522
+
+  // init wifi
+  WiFi.begin(SSID, PASSWD);
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Not Connected");
+    delay(100);
+  }
+  Serial.println("Connected");
 }
 
 void loop() {
@@ -52,6 +66,7 @@ void loop() {
   // rising edge
   if (rfid_tag_present && !rfid_tag_present_prev){
     Serial.println("Tag found");
+    mfrc522.PICC_DumpDetailsToSerial(&(mfrc522.uid));
   }
   
   // falling edge
