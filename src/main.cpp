@@ -7,7 +7,7 @@
 
 #define SSID "WifiCadeau"
 #define PASSWD "CadeauWifi"
-#define URL "http://guardia-api.iadjedj.ovh/unsecure/docs#/"  // 
+#define URL "http://guardia-api.iadjedj.ovh/unsecure/"  // 
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
 #define GLED            D2
@@ -52,6 +52,8 @@ void setup()
   pinMode(GLED, OUTPUT);
   pinMode(RLED, OUTPUT);
 }
+
+void api()
 
 void loop()
 {
