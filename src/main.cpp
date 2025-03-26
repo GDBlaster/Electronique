@@ -10,8 +10,8 @@
 #define URL "http://ilann-weather-api.glitch.me/Lyon"
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
-#define GLED            D1
-#define RLED            D2
+#define GLED            D2
+#define RLED            D1
 
 MFRC522 mfrc522(SS_PIN, RST_PIN); // Create MFRC522 instance
 
