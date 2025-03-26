@@ -7,7 +7,7 @@
 
 #define SSID "WifiCadeau"
 #define PASSWD "CadeauWifi"
-#define URL "http://ilann-weather-api.glitch.me/Lyon"
+#define URL "http://guardia-api.iadjedj.ovh/unsecure/docs#/"  // 
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
 #define GLED            D1
