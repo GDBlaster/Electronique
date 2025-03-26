@@ -46,10 +46,11 @@ void blinkred(int count)
 void setup()
 {
   Serial.begin(115200);
-  while (!Serial)
-    ;
+  while (!Serial);
   SPI.begin();
   mfrc522.PCD_Init(); // Init MFRC522
+  pinMode(GLED, OUTPUT);
+  pinMode(RLED, OUTPUT);
 }
 
 void loop()
