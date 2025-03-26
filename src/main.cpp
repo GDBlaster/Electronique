@@ -20,12 +20,12 @@ bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
 bool _tag_found = false;
 
-uint64_t convertUIDToInt(const uint8_t *uid) {
-  uint64_t uidValue = 0;
-  for (int i = 0; i < 8; i++) {
-      uidValue = (uidValue << 8) | uid[i];
+String getUIDDecimal(MFRC522 &mfrc522) {
+  String uidString = "";
+  for (byte i = 0; i < mfrc522.uid.size; i++) {
+      uidString += String(mfrc522.uid.uidByte[i], DEC);
   }
-  return uidValue;
+  return uidString;
 }
 
 void Blink(int count, int led)
@@ -51,6 +51,41 @@ void blinkred(int count)
   Blink(count, RLED);
 }
 
+void api(String fin_url, String id){
+  HTTPClient http;
+  String resp;
+  http.begin(URL+fin_url+id);
+  int code = http.GET();
+   
+  if (code == HTTP_CODE_OK){
+    resp = http.getString();
+
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, resp);
+
+    if (error) {
+      Serial.print("deserializeJson() failed: ");
+      Serial.println(error.c_str());
+      return;
+    }
+
+    const char* level = doc["level"]; // unauthorized // user // admin"      
+    http.end();
+
+    if (level != "user" || level != "admin"){
+      Serial.println(level);
+      blinkred(6);
+    }
+    else{
+      Serial.println("passage autorisée");
+      blinkgreen(3);
+    }
+  }else {
+    Serial.println("Badge non connu");
+    blinkred(6);
+  }
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -59,33 +94,13 @@ void setup()
   mfrc522.PCD_Init(); // Init MFRC522
   pinMode(GLED, OUTPUT);
   pinMode(RLED, OUTPUT);
-}
 
-void api(String fin_url, String id){
-  HTTPClient http;
-  String resp;
-  http.begin(URL+fin_url+id);
-  int code = http.GET();
-   
-  if (code == HTTP_CODE_OK)
-    resp = http.getString();
-
-  JsonDocument doc;
-
-  DeserializationError error = deserializeJson(doc, resp);
-
-  if (error) {
-    Serial.print("deserializeJson() failed: ");
-    Serial.println(error.c_str());
-    return;
+  WiFi.begin(SSID, PASSWD);
+  while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print("WiFi Error");
   }
-
-  int badge_id = doc["badge_id"]; // 1
-  const char* level = doc["level"]; // "unauthorized"
-  const char* created_at = doc["created_at"]; // "2025-03-26T11:59:37.856Z"
-  const char* updated_at = doc["updated_at"]; // "2025-03-26T11:59:37.856Z"
-        
-  http.end();
+  Serial.println("WiFi connecté !");
 }
 
 void loop()
@@ -126,11 +141,10 @@ void loop()
   if (rfid_tag_present && !rfid_tag_present_prev)
   {
     Serial.println("Tag found");
-    uint64_t uid = convertUIDToInt(mfrc522.uid.uidByte);
+    String uid = getUIDDecimal(mfrc522);
     mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
     Serial.println(uid);
-    blinkgreen(3);
-    
+    api("check_badge?badge_id=", uid);
   }
 
   // falling edge
