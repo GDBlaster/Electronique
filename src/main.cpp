@@ -93,6 +93,11 @@ void loop()
     Serial.println("Tag found");
     mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
     blinkgreen(3);
+    Serial.print("UID: ");
+    for (byte i = 0; i < mfrc522.uid.size; i++) {
+        Serial.print(mfrc522.uid.uidByte[i], DEC); 
+    }
+    Serial.println();
   }
 
   // falling edge
