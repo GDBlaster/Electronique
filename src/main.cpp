@@ -1,11 +1,17 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <MFRC522.h>
+#include "WiFi.h"
+#include "HTTPClient.h"
+#include <ArduinoJson.h>
 
-#define RST_PIN D6 // Configurable, see typical pin layout above
-#define SS_PIN D4  // Configurable, see typical pin layout above
-#define GLED D1
-#define RLED D2
+#define SSID "WifiCadeau"
+#define PASSWD "CadeauWifi"
+#define URL "http://ilann-weather-api.glitch.me/Lyon"
+#define RST_PIN         D6          // Configurable, see typical pin layout above
+#define SS_PIN          D4       // Configurable, see typical pin layout above
+#define GLED            D1
+#define RLED            D2
 
 MFRC522 mfrc522(SS_PIN, RST_PIN); // Create MFRC522 instance
 
