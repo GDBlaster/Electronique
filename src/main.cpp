@@ -10,6 +10,8 @@
 #define URL "http://ilann-weather-api.glitch.me/Lyon"
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
+#define GLED            D1
+#define RLED            D2
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance
 
@@ -66,7 +68,7 @@ void loop() {
   // rising edge
   if (rfid_tag_present && !rfid_tag_present_prev){
     Serial.println("Tag found");
-    mfrc522.PICC_DumpDetailsToSerial(&(mfrc522.uid));
+    mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
   }
   
   // falling edge
