@@ -92,6 +92,7 @@ void loop()
   {
     Serial.println("Tag found");
     mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
+    blinkgreen(3);
   }
 
   // falling edge
