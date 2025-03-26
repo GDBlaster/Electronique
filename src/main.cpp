@@ -7,7 +7,7 @@
 
 #define SSID "WifiCadeau"
 #define PASSWD "CadeauWifi"
-#define URL "http://guardia-api.iadjedj.ovh/unsecure/docs#/"  // 
+#define URL "http://guardia-api.iadjedj.ovh/unsecure/"  // 
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
 #define GLED            D2
@@ -59,6 +59,33 @@ void setup()
   mfrc522.PCD_Init(); // Init MFRC522
   pinMode(GLED, OUTPUT);
   pinMode(RLED, OUTPUT);
+}
+
+void api(String fin_url, String id){
+  HTTPClient http;
+  String resp;
+  http.begin(URL+fin_url+id);
+  int code = http.GET();
+   
+  if (code == HTTP_CODE_OK)
+    resp = http.getString();
+
+  JsonDocument doc;
+
+  DeserializationError error = deserializeJson(doc, resp);
+
+  if (error) {
+    Serial.print("deserializeJson() failed: ");
+    Serial.println(error.c_str());
+    return;
+  }
+
+  int badge_id = doc["badge_id"]; // 1
+  const char* level = doc["level"]; // "unauthorized"
+  const char* created_at = doc["created_at"]; // "2025-03-26T11:59:37.856Z"
+  const char* updated_at = doc["updated_at"]; // "2025-03-26T11:59:37.856Z"
+        
+  http.end();
 }
 
 void loop()
