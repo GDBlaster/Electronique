@@ -1,0 +1,14 @@
+{
+  "name": "api",
+  "version": "0.0.1",
+  "description": "api for project",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "GDBlaster",
+  "license": "ISC",
+  "dependencies": {
+    "express": "4.*"
+  }
+}
