@@ -1,5 +1,6 @@
-import express from "express";
-import db from "./db.json"
+const express = require("express");
+const db = require('./db.json');
+
 
 const app = express();
 app.use(express.json());
@@ -18,8 +19,9 @@ app.get("/ping", (request, response) => {
 });
 
 app.get("/check", (request, response) => {
-    if (request.body.token in db.tokens) {
-        if (db.badges?.[request.body.id] != undefined) {
+    console.log(request.body);
+    if (db.tokens.includes(request.body.token)) {
+        if (db.badges[request.body.id] != undefined) {
             var out = {
                 "permission" : db.badges[request.body.id],
             }
