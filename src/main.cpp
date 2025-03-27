@@ -7,7 +7,8 @@
 
 #define SSID "RouteurCadeau"
 #define PASSWD "CadeauRouteur"
-#define URL "https://guardia-api.iadjedj.ovh/unsecure/"  // 
+#define JWT_TOKEN "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk"
+#define URL "https://guardia-api.iadjedj.ovh/"  // 
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
 #define GLED            D2
@@ -56,7 +57,10 @@ void api(String fin_url, String id){
   String resp;
   String full_url = URL + fin_url + id;
   http.begin(full_url);
+  http.addHeader("Authorization", String("Bearer ") + JWT_TOKEN);
+  http.addHeader("Content-Type", "application/json");
   int code = http.GET();
+
   if (code == HTTP_CODE_OK){
     resp = http.getString();
 
@@ -79,8 +83,11 @@ void api(String fin_url, String id){
       Serial.println(level);
       blinkred(3);
     }
-  }else {
+  }else if (code == -1){
+    Serial.println("code erreur -1");
+  }else{
     Serial.println("Badge non connu");
+    Serial.println(code);
     blinkred(3);
   }
 }
@@ -141,9 +148,9 @@ void loop()
   {
     Serial.println("Tag found");
     String uid = getUIDDecimal(mfrc522);
-    mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
+  //  mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
     Serial.println(uid);
-    api("check_badge?badge_id=", uid);
+    api("check_badge?id=", uid);
   }
 
   // falling edge
