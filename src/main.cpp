@@ -5,10 +5,11 @@
 #include <WiFiClientSecure.h>
 #include "HTTPClient.h"
 #include <ArduinoJson.h>
+#include <Preferences.h>
+
 
 #define SSID "RouteurCadeau"
 #define PASSWD "CadeauRouteur"
-#define JWT_TOKEN "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk"
 #define URL "https://guardia-api.iadjedj.ovh/"  // 
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
@@ -86,12 +87,14 @@ const char* server_cert = \
 "-----END CERTIFICATE-----\n";
 
 
-MFRC522 mfrc522(SS_PIN, RST_PIN); // Create MFRC522 instance
+MFRC522 mfrc522(SS_PIN, RST_PIN); // Creation de l'instance MFRC522
+Preferences preferences;
 
 bool rfid_tag_present_prev = false;
 bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
 bool _tag_found = false;
+String token;
 
 String getUIDDecimal(MFRC522 &mfrc522) {
   String uidString = "";
@@ -142,7 +145,7 @@ void api(String fin_url, String id) {
   Serial.println("✅ Connexion HTTPS établie !");
 
   // Ajout du JWT Token dans l'en-tête
-  http.addHeader("Authorization", String("Bearer ") + JWT_TOKEN);
+  http.addHeader("Authorization", String("Bearer ") + token);
   http.addHeader("Content-Type", "application/json");
 
   int code = http.GET();  // Envoi de la requête GET
@@ -162,7 +165,7 @@ void api(String fin_url, String id) {
     }
 
     const char* level = doc["level"];  // "unauthorized", "user", "admin"
-    http.end();  // Fermer la connexion
+    http.end();  // connexion fermée
 
     if (level && (strcmp(level, "user") == 0 || strcmp(level, "admin") == 0)) {
       Serial.println("✅ Passage autorisé !");
@@ -178,13 +181,21 @@ void api(String fin_url, String id) {
     blinkred(3);
   }
 
-  http.end();  // Assurez-vous que la connexion est fermée après chaque requête
+  http.end(); // connexion fermée
 }
 
 
 void setup()
 {
   Serial.begin(115200);
+  //NVS
+  preferences.begin("myApp", false);
+  token = preferences.getString("token", "pas_de_token");
+
+  Serial.println("🔑 Token récupéré : " + token);
+  //preferences.putString("token", JWT_TOKEN);
+  preferences.end();
+
   while (!Serial);
   SPI.begin();
   mfrc522.PCD_Init(); // Init MFRC522
@@ -192,6 +203,7 @@ void setup()
   pinMode(RLED, OUTPUT);
 
   WiFi.begin(SSID, PASSWD);
+
   while (WiFi.status() != WL_CONNECTED) {
       delay(500);
       Serial.print("WiFi Error");
@@ -233,7 +245,7 @@ void loop()
 
   rfid_tag_present = _tag_found;
 
-  // rising edge
+  // si badge detectée
   if (rfid_tag_present && !rfid_tag_present_prev)
   {
     Serial.println("Tag found");
@@ -243,7 +255,7 @@ void loop()
     api("check_badge?id=", uid);
   }
 
-  // falling edge
+  // si badge n'est plus detectée
   if (!rfid_tag_present && rfid_tag_present_prev)
   {
     Serial.println("Tag gone");
