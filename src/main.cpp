@@ -5,9 +5,9 @@
 #include "HTTPClient.h"
 #include <ArduinoJson.h>
 
-#define SSID "WifiCadeau"
-#define PASSWD "CadeauWifi"
-#define URL "http://guardia-api.iadjedj.ovh/unsecure/"  // 
+#define SSID "RouteurCadeau"
+#define PASSWD "CadeauRouteur"
+#define URL "https://guardia-api.iadjedj.ovh/unsecure/"  // 
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
 #define GLED            D2
@@ -54,9 +54,9 @@ void blinkred(int count)
 void api(String fin_url, String id){
   HTTPClient http;
   String resp;
-  http.begin(URL+fin_url+id);
+  String full_url = URL + fin_url + id;
+  http.begin(full_url);
   int code = http.GET();
-   
   if (code == HTTP_CODE_OK){
     resp = http.getString();
 
@@ -71,18 +71,17 @@ void api(String fin_url, String id){
 
     const char* level = doc["level"]; // unauthorized // user // admin"      
     http.end();
-
-    if (level != "user" || level != "admin"){
-      Serial.println(level);
-      blinkred(6);
-    }
-    else{
+    if (strcmp(level, "user") == 0 || strcmp(level, "admin") == 0) {
       Serial.println("passage autorisée");
       blinkgreen(3);
     }
+    else{
+      Serial.println(level);
+      blinkred(3);
+    }
   }else {
     Serial.println("Badge non connu");
-    blinkred(6);
+    blinkred(3);
   }
 }
 
