@@ -6,6 +6,7 @@
 #include "HTTPClient.h"
 #include <ArduinoJson.h>
 #include <Preferences.h>
+#include <AES.h>
 
 
 #define SSID "RouteurCadeau"
@@ -94,7 +95,7 @@ bool rfid_tag_present_prev = false;
 bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
 bool _tag_found = false;
-String token;
+String decryptedJWT;
 
 String getUIDDecimal(MFRC522 &mfrc522) {
   String uidString = "";
@@ -127,6 +128,55 @@ void blinkred(int count)
   Blink(count, RLED);
 }
 
+// encyption de JWT_TOKEN
+
+// cree la cle AES a partir de l adresse MAC
+void getDeviceKey(uint8_t* key) {
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  memset(key, 0, 16);  // Initialise la clé à 0
+  memcpy(key, mac, 6); // Copie l'adresse MAC dans la clé
+}
+
+void encryptJWT(const char* jwt, uint8_t* encryptedJWT) {
+  uint8_t key[16];
+  getDeviceKey(key);  // Générer la clé AES depuis l'adresse MAC
+  
+  AES aes;
+  aes.set_key(key, 16);  // Clé de 16 octets (AES-128)
+  
+  uint8_t buffer[16] = {0};  // Le token doit être un multiple de 16 octets
+  strncpy((char*)buffer, jwt, 16);  // Copie du JWT dans le buffer
+  
+  aes.encrypt(buffer, encryptedJWT);  // Chiffrement AES
+}
+
+void decryptJWT(uint8_t* encryptedJWT, char* decryptedJWT) {
+  uint8_t key[16];
+  getDeviceKey(key);
+
+  AES aes;
+  aes.set_key(key, 16);
+  
+  uint8_t buffer[16];
+  aes.decrypt(encryptedJWT, buffer);  // Déchiffrement AES
+
+  strcpy(decryptedJWT, (char*)buffer);
+}
+
+void storeEncryptedJWT(uint8_t* encryptedJWT) {
+  preferences.begin("secure", false);
+  preferences.putBytes("jwt", encryptedJWT, 16);
+  preferences.end();
+}
+
+void retrieveEncryptedJWT(uint8_t* encryptedJWT) {
+  preferences.begin("secure", false);
+  preferences.getBytes("jwt", encryptedJWT, 16);
+  preferences.end();
+}
+
+
 void api(String fin_url, String id) {
   WiFiClientSecure client;
   client.setCACert(server_cert);  // Certificat du serveur
@@ -145,7 +195,7 @@ void api(String fin_url, String id) {
   Serial.println("✅ Connexion HTTPS établie !");
 
   // Ajout du JWT Token dans l'en-tête
-  http.addHeader("Authorization", String("Bearer ") + token);
+  http.addHeader("Authorization", String("Bearer ") + decryptedJWT);
   http.addHeader("Content-Type", "application/json");
 
   int code = http.GET();  // Envoi de la requête GET
@@ -188,13 +238,16 @@ void api(String fin_url, String id) {
 void setup()
 {
   Serial.begin(115200);
-  //NVS
-  preferences.begin("myApp", false);
-  token = preferences.getString("token", "pas_de_token");
+  const char* jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk";
+  uint8_t encryptedJWT[16];
+  encryptJWT(jwt, encryptedJWT);
+  storeEncryptedJWT(encryptedJWT);
 
-  Serial.println("🔑 Token récupéré : " + token);
-  //preferences.putString("token", JWT_TOKEN);
-  preferences.end();
+  uint8_t retrievedJWT[16];
+  retrieveEncryptedJWT(retrievedJWT);
+
+  char decryptedJWT[17] = {0};
+  decryptJWT(retrievedJWT, decryptedJWT);
 
   while (!Serial);
   SPI.begin();
@@ -213,6 +266,7 @@ void setup()
 
 void loop()
 {
+  Serial.println(decryptedJWT);
   rfid_tag_present_prev = rfid_tag_present;
 
   _rfid_error_counter += 1;
