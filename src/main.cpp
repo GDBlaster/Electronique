@@ -6,7 +6,9 @@
 #include "HTTPClient.h"
 #include <ArduinoJson.h>
 #include <Preferences.h>
-
+#include <ArduinoNvs.h>
+#include <aes/esp_aes.h>
+#include <string.h>
 
 #define SSID "RouteurCadeau"
 #define PASSWD "CadeauRouteur"
@@ -15,6 +17,8 @@
 #define SS_PIN          D4       // Configurable, see typical pin layout above
 #define GLED            D2
 #define RLED            D1
+
+
 
 const char* server_cert = \
 "-----BEGIN CERTIFICATE-----\n" \
@@ -145,6 +149,7 @@ void api(String fin_url, String id) {
   Serial.println("✅ Connexion HTTPS établie !");
 
   // Ajout du JWT Token dans l'en-tête
+  
   http.addHeader("Authorization", String("Bearer ") + token);
   http.addHeader("Content-Type", "application/json");
 
@@ -184,16 +189,62 @@ void api(String fin_url, String id) {
   http.end(); // connexion fermée
 }
 
+char plaintext[16384];
+char encrypted[16384];
+char decrypted[16384];
+
+void encrypt()
+{
+    uint8_t key[32];
+    uint8_t iv[16];
+
+    memset(iv, 0, sizeof(iv));
+    memset(key, 0, sizeof(key));
+    
+    memset(plaintext, 0, sizeof(plaintext));
+    strcpy(plaintext, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk");
+    
+    esp_aes_context ctx;
+    esp_aes_init(&ctx);
+    esp_aes_setkey(&ctx, key, 256);
+    
+    esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, sizeof(plaintext), iv, (uint8_t*)plaintext, (uint8_t*)encrypted);
+    
+    esp_aes_free(&ctx);
+
+
+
+}
+void decrypt()
+{
+    uint8_t key[32];
+    uint8_t iv[16];
+
+    memset(iv, 0, sizeof(iv));
+    memset(key, 0, sizeof(key));
+    
+    esp_aes_context ctx;
+    esp_aes_init(&ctx);
+    esp_aes_setkey(&ctx, key, 256);
+    
+    esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, sizeof(encrypted), iv, (uint8_t*)encrypted, (uint8_t*)decrypted);
+    
+    printf("Decrypted text: %s\n", decrypted);
+    esp_aes_free(&ctx);
+
+}
+
 
 void setup()
 {
   Serial.begin(115200);
   //NVS
   preferences.begin("myApp", false);
-  token = preferences.getString("token", "pas_de_token");
+  
 
-  Serial.println("🔑 Token récupéré : " + token);
-  //preferences.putString("token", JWT_TOKEN);
+  //Serial.println("🔑 Token récupéré : " + token);
+  preferences.putString("token", encrypted);
+  token = preferences.getString("token", "pas_de_token");
   preferences.end();
 
   while (!Serial);
@@ -213,6 +264,7 @@ void setup()
 
 void loop()
 {
+  encrypt();
   rfid_tag_present_prev = rfid_tag_present;
 
   _rfid_error_counter += 1;
