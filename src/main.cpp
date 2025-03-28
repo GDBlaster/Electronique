@@ -215,6 +215,7 @@ void encrypt()
 
 
 }
+const char *jsp;
 void decrypt()
 {
     uint8_t key[32];
@@ -227,7 +228,7 @@ void decrypt()
     esp_aes_init(&ctx);
     esp_aes_setkey(&ctx, key, 256);
     
-    esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, sizeof(encrypted), iv, (uint8_t*)encrypted, (uint8_t*)decrypted);
+    esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, sizeof(jsp), iv, (uint8_t*)jsp, (uint8_t*)decrypted);
     
     printf("Decrypted text: %s\n", decrypted);
     esp_aes_free(&ctx);
@@ -243,9 +244,15 @@ void setup()
   
 
   //Serial.println("🔑 Token récupéré : " + token);
-  preferences.putString("token", encrypted);
+  //preferences.putString("token", encrypted);
   token = preferences.getString("token", "pas_de_token");
+  Serial.println(token);
+
+  const char *jsp = token.c_str(); // sa marche mais c pas modifiable 
+  // Serial.println(jsp);
+  decrypt();
   preferences.end();
+
 
   while (!Serial);
   SPI.begin();
@@ -264,7 +271,7 @@ void setup()
 
 void loop()
 {
-  encrypt();
+  decrypt();
   rfid_tag_present_prev = rfid_tag_present;
 
   _rfid_error_counter += 1;
