@@ -1,7 +1,7 @@
-GET http://localhost:3000/check HTTP/1.1
+POST http://localhost:3000/check HTTP/1.1
 Content-Type: application/json
 
 {
-    "token" : "khgyuikjhgytujhgtyuijh",
-    "id" : "163150123"
+    "token" : "khgyuikjhgytujnbhgtyuijh",
+    "id" : "16315012413"
 }

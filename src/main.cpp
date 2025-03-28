@@ -7,11 +7,12 @@
 
 #define SSID "RouteurCadeau"
 #define PASSWD "CadeauRouteur"
-#define URL "https://guardia-api.iadjedj.ovh/unsecure/"  // 
-#define RST_PIN         D6          // Configurable, see typical pin layout above
-#define SS_PIN          D4       // Configurable, see typical pin layout above
-#define GLED            D2
-#define RLED            D1
+#define URL "10.1.143.107:3000" //
+#define APITOKEN "khgyuikjhgytujnbhgtyuijh"
+#define RST_PIN D6 // Configurable, see typical pin layout above
+#define SS_PIN D4  // Configurable, see typical pin layout above
+#define GLED D2
+#define RLED D1
 
 MFRC522 mfrc522(SS_PIN, RST_PIN); // Create MFRC522 instance
 
@@ -20,10 +21,12 @@ bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
 bool _tag_found = false;
 
-String getUIDDecimal(MFRC522 &mfrc522) {
+String getUIDDecimal(MFRC522 &mfrc522)
+{
   String uidString = "";
-  for (byte i = 0; i < mfrc522.uid.size; i++) {
-      uidString += String(mfrc522.uid.uidByte[i], DEC);
+  for (byte i = 0; i < mfrc522.uid.size; i++)
+  {
+    uidString += String(mfrc522.uid.uidByte[i], DEC);
   }
   return uidString;
 }
@@ -51,53 +54,80 @@ void blinkred(int count)
   Blink(count, RLED);
 }
 
-void api(String fin_url, String id){
+void api(String fin_url, String id)
+{
+  Serial.println(URL + fin_url + id);
   HTTPClient http;
   String resp;
-  String full_url = URL + fin_url + id;
+  String full_url = String(URL) + fin_url;
+
+  JsonDocument doc;
+  doc["token"] = APITOKEN;
+  doc["id"] = id;
+
+
+  String jsonPayload;
+  serializeJson(doc, jsonPayload);
+
+  Serial.println(jsonPayload);
+
   http.begin(full_url);
-  int code = http.GET();
-  if (code == HTTP_CODE_OK){
+  http.addHeader("Content-Type", "application/json");
+
+  int code = http.sendRequest("GET", jsonPayload);
+
+  if (code == HTTP_CODE_OK)
+  {
     resp = http.getString();
 
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, resp);
+    JsonDocument responseDoc;
+    DeserializationError error = deserializeJson(responseDoc, resp);
 
-    if (error) {
+    if (error)
+    {
       Serial.print("deserializeJson() failed: ");
       Serial.println(error.c_str());
       return;
     }
 
-    const char* level = doc["level"]; // unauthorized // user // admin"      
+    const char *level = responseDoc["level"]; // "unauthorized", "user", "admin"
     http.end();
-    if (strcmp(level, "user") == 0 || strcmp(level, "admin") == 0) {
-      Serial.println("passage autorisée");
+
+    if (strcmp(level, "user") == 0 || strcmp(level, "admin") == 0)
+    {
+      Serial.println("Passage autorisée");
       blinkgreen(3);
     }
-    else{
+    else
+    {
       Serial.println(level);
       blinkred(3);
     }
-  }else {
+  }
+  else
+  {
     Serial.println("Badge non connu");
     blinkred(3);
   }
+
+  http.end(); // Close connection
 }
 
 void setup()
 {
   Serial.begin(115200);
-  while (!Serial);
+  while (!Serial)
+    ;
   SPI.begin();
   mfrc522.PCD_Init(); // Init MFRC522
   pinMode(GLED, OUTPUT);
   pinMode(RLED, OUTPUT);
 
   WiFi.begin(SSID, PASSWD);
-  while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      Serial.print("WiFi Error");
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print("WiFi Error");
   }
   Serial.println("WiFi connecté !");
 }
@@ -143,7 +173,7 @@ void loop()
     String uid = getUIDDecimal(mfrc522);
     mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
     Serial.println(uid);
-    api("check_badge?badge_id=", uid);
+    api("/check", uid);
   }
 
   // falling edge

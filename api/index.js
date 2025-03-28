@@ -18,7 +18,7 @@ app.get("/ping", (request, response) => {
     response.send(status);
 });
 
-app.get("/check", (request, response) => {
+app.post("/check", (request, response) => {
     console.log(request.body);
     if (db.tokens.includes(request.body.token)) {
         if (db.badges[request.body.id] != undefined) {
