@@ -10,8 +10,8 @@
 #include <aes/esp_aes.h>
 #include <string.h>
 
-#define SSID "RouteurCadeau"
-#define PASSWD "CadeauRouteur"
+#define SSID "Freebox-05E6B9"
+#define PASSWD "attractam.?-mordeto5?-incurrite-apiciano"
 #define URL "https://guardia-api.iadjedj.ovh/"  // 
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
@@ -98,7 +98,10 @@ bool rfid_tag_present_prev = false;
 bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
 bool _tag_found = false;
-String token;
+char plaintext[500];
+char encrypted[500];
+char decrypted[500];
+uint8_t jsp[256];
 
 String getUIDDecimal(MFRC522 &mfrc522) {
   String uidString = "";
@@ -150,7 +153,7 @@ void api(String fin_url, String id) {
 
   // Ajout du JWT Token dans l'en-tête
   
-  http.addHeader("Authorization", String("Bearer ") + token);
+  http.addHeader("Authorization", String("Bearer ") + decrypted);
   http.addHeader("Content-Type", "application/json");
 
   int code = http.GET();  // Envoi de la requête GET
@@ -183,15 +186,12 @@ void api(String fin_url, String id) {
   } else {
     Serial.print("❌ Erreur HTTP : ");
     Serial.println(code);
+    Serial.println(http.getString());
     blinkred(3);
   }
 
   http.end(); // connexion fermée
 }
-
-char plaintext[16384];
-char encrypted[16384];
-char decrypted[16384];
 
 void encrypt()
 {
@@ -209,13 +209,10 @@ void encrypt()
     esp_aes_setkey(&ctx, key, 256);
     
     esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, sizeof(plaintext), iv, (uint8_t*)plaintext, (uint8_t*)encrypted);
-    
+    printf("Decrypted text: %s\n", plaintext);
+    printf("encrypted text: %s\n", encrypted);
     esp_aes_free(&ctx);
-
-
-
 }
-const char *jsp;
 void decrypt()
 {
     uint8_t key[32];
@@ -241,15 +238,16 @@ void setup()
   Serial.begin(115200);
   //NVS
   preferences.begin("myApp", false);
-  
-
-  //Serial.println("🔑 Token récupéré : " + token);
+  //encrypt();
   //preferences.putString("token", encrypted);
-  token = preferences.getString("token", "pas_de_token");
+  String token = preferences.getString("token", "pas_de_token");
   Serial.println(token);
 
-  const char *jsp = token.c_str(); // sa marche mais c pas modifiable 
-  // Serial.println(jsp);
+  memcpy(jsp, token.c_str(), token.length());  // Copier la chaîne en binaire
+  
+  Serial.println("Données chiffrées récupérées :");
+  Serial.println((char*)jsp);
+
   decrypt();
   preferences.end();
 
@@ -271,7 +269,6 @@ void setup()
 
 void loop()
 {
-  decrypt();
   rfid_tag_present_prev = rfid_tag_present;
 
   _rfid_error_counter += 1;
@@ -311,7 +308,7 @@ void loop()
     String uid = getUIDDecimal(mfrc522);
   //  mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
     Serial.println(uid);
-    api("check_badge?id=", uid);
+    api("check_badge?badge_id=", uid);
   }
 
   // si badge n'est plus detectée
