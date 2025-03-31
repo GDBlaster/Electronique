@@ -7,7 +7,7 @@
 
 #define SSID "RouteurCadeau"
 #define PASSWD "CadeauRouteur"
-#define URL "5.tcp.eu.ngrok.io:16258" //
+#define URL "http://7b3e-82-66-23-99.ngrok-free.app" //
 #define APITOKEN "khgyuikjhgytujnbhgtyuijh"
 #define RST_PIN D6 // Configurable, see typical pin layout above
 #define SS_PIN D4  // Configurable, see typical pin layout above
@@ -74,7 +74,9 @@ void api(String fin_url, String id)
   http.begin(full_url);
   http.addHeader("Content-Type", "application/json");
 
-  int code = http.sendRequest("GET", jsonPayload);
+  int code = http.sendRequest("POST", jsonPayload);
+
+  Serial.println(code);
 
   if (code == HTTP_CODE_OK)
   {
