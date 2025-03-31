@@ -19,6 +19,7 @@ app.get("/ping", (request, response) => {
 });
 
 app.post("/check", (request, response) => {
+    console.log(request);
     console.log(request.body);
     if (db.tokens.includes(request.body.token)) {
         if (db.badges[request.body.id] != undefined) {
@@ -27,10 +28,11 @@ app.post("/check", (request, response) => {
             }
             response.send(out)
         } else {
+            console.log("error 404");
             response.status(404).json({error : "Not Found"});
         };
     } else {
+        console.log("Error 403");
         response.status(403).json({ error : "Forbiden"});
     };
-
 });

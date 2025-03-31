@@ -5,9 +5,9 @@
 #include "HTTPClient.h"
 #include <ArduinoJson.h>
 
-#define SSID "RouteurCadeau"
-#define PASSWD "CadeauRouteur"
-#define URL "http://7b3e-82-66-23-99.ngrok-free.app" //
+#define SSID "Suu"
+#define PASSWD "popallec"
+#define URL "http://192.168.225.23:3000" //
 #define APITOKEN "khgyuikjhgytujnbhgtyuijh"
 #define RST_PIN D6 // Configurable, see typical pin layout above
 #define SS_PIN D4  // Configurable, see typical pin layout above
@@ -92,8 +92,10 @@ void api(String fin_url, String id)
       return;
     }
 
-    const char *level = responseDoc["level"]; // "unauthorized", "user", "admin"
+    const char *level = responseDoc["permission"]; // "unauthorized", "user", "admin"
     http.end();
+
+    Serial.println(level);
 
     if (strcmp(level, "user") == 0 || strcmp(level, "admin") == 0)
     {
