@@ -13,7 +13,7 @@
 
 #define SSID "Freebox-58BA7C"
 #define PASSWD "ingest&-ferita-oblinito@-aquati"
-#define URL "https://guardia-api.iadjedj.ovh/"  // 
+#define URL "https://guardia-api.iadjedj.ovh/check_badge?badge_id="  // 
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
 #define GLED            D2
@@ -91,13 +91,14 @@ const char* server_cert = \
 "m+kXQ99b21/+jh5Xos1AnX5iItreGCc=\n" \
 "-----END CERTIFICATE-----\n";
 
+// INITIALISATION DES VARIABLES | TABLEAUX | INSTANCES :
 
 MFRC522 mfrc522(SS_PIN, RST_PIN); // Creation de l'instance MFRC522
 Preferences preferences;
 
 const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 3600; // UTC+1 (ajustez selon votre fuseau horaire)
-const int   daylightOffset_sec = 3600; // Ajustement pour l'heure d'été
+const long  gmtOffset_sec = 3600; // UTC+1 (fuseau horaire)
+const int   daylightOffset_sec = 3600; // heure d'été
 
 unsigned long lastTimeCheck = millis();
 const long interval = 60000;
@@ -107,13 +108,13 @@ bool rfid_tag_present_prev = false;
 bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
 bool _tag_found = false;
+
 char plaintext[256];
 char encrypted[256];
 char decrypted[256];
-uint8_t jsp[256];
 
 
-
+// TRANSFORME ID HEXADECIMAL EN DECIMAL :
 String getUIDDecimal(MFRC522 &mfrc522) {
   String uidString = "";
   for (byte i = 0; i < mfrc522.uid.size; i++) {
@@ -122,6 +123,7 @@ String getUIDDecimal(MFRC522 &mfrc522) {
   return uidString;
 }
 
+// FAIT CLIGNOTER LES LED
 void Blink(int count, int led)
 {
   int i = 0;
@@ -145,13 +147,14 @@ void blinkred(int count)
   Blink(count, RLED);
 }
 
-void api(String fin_url, String id) {
+// CONNEXTION TO API :
+void api(String id) {
   WiFiClientSecure client;
   client.setCACert(server_cert);  // Certificat du serveur
 
   HTTPClient http;
   String resp;
-  String full_url = URL + fin_url + id;
+  String full_url = URL + id;
 
   Serial.println("Tentative de connexion à : " + full_url);
 
@@ -203,8 +206,8 @@ void api(String fin_url, String id) {
 
   http.end(); // connexion fermée
 }
-
-void encrypt()
+// "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk"
+void encrypt(const char * data)
 {
     uint8_t key[32];
     uint8_t iv[16];
@@ -213,63 +216,63 @@ void encrypt()
     memset(key, 0, sizeof(key));
     
     memset(plaintext, 0, sizeof(plaintext));
-    strcpy(plaintext, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk");
+    strcpy(plaintext, data);
     
     esp_aes_context ctx;
     esp_aes_init(&ctx);
     esp_aes_setkey(&ctx, key, 256);
     
     esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, sizeof(plaintext), iv, (uint8_t*)plaintext, (uint8_t*)encrypted);
-    printf("Plaintext text: %s\n", plaintext);
-    printf("encrypted text: %s\n", encrypted);
     esp_aes_free(&ctx);
-    int i;
-    for ( i = 0; i < 128; i++ )
-    {
-      printf( "%02x[%c]%c", encrypted[i], (encrypted[i] > 31) ? encrypted[i] : ' ', ((i & 0xf) != 0xf) ? ' ' : '\n' );
-    }
-    printf( "\n" );
 }
-void decrypt()
+void decrypt(String input_text, int size)
 {
-    uint8_t key[32];
-    uint8_t iv[16];
-
-    memset(iv, 0, sizeof(iv));
-    memset(key, 0, sizeof(key));
-    
-    esp_aes_context ctx;
-    esp_aes_init(&ctx);
-    esp_aes_setkey(&ctx, key, 256);
-    
-    esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, sizeof(jsp), iv, (uint8_t*)jsp, (uint8_t*)decrypted);
-    
-    printf("Decrypted text: %s\n", decrypted);
-    esp_aes_free(&ctx);
-
+  uint8_t key[32];
+  uint8_t iv[16];
+  uint8_t encrepted_text[size];
+  char result[size];
+  
+  memcpy(encrepted_text, input_text.c_str(), input_text.length());
+  memset(iv, 0, sizeof(iv));
+  memset(key, 0, sizeof(key));
+  
+  esp_aes_context ctx;
+  esp_aes_init(&ctx);
+  esp_aes_setkey(&ctx, key, 256);
+  
+  esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, size, iv, (uint8_t*)encrepted_text, (uint8_t*)decrypted);
+  
+  printf("Decrypted text: %s\n", decrypted);
+  esp_aes_free(&ctx);
 }
 
+void get_from_nvs(){
+  preferences.begin("myApp", false);
+  
+  String token = preferences.getString("token", "pas_de_token");
+  decrypt(token, 256);
+  Serial.println(token);
+  preferences.end();
+}
+
+void initialisation(){
+  encrypt("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk");
+  preferences.putString("token", encrypted);
+  encrypt("Freebox-58BA7C");
+  preferences.putString("SSID", encrypted);
+  encrypt("ingest&-ferita-oblinito@-aquati");
+  preferences.putString("PASSWD", encrypted);
+  encrypt("https://guardia-api.iadjedj.ovh/check_badge?badge_id=");
+  preferences.putString("URL", encrypted);
+}
 
 void setup()
 {
   Serial.begin(115200);
   delay(100);
   lastTimeCheck = millis() - interval;
-  //NVS
-  preferences.begin("myApp", false);
-  encrypt();
-  preferences.putString("token", encrypted);
-  String token = preferences.getString("token", "pas_de_token");
-  Serial.println(token);
-  
-  memcpy(jsp, token.c_str(), token.length());  // Copier la chaîne en binaire
-  
-  Serial.println("Données chiffrées récupérées :");
-  Serial.println((char*)jsp);
-
-  decrypt();
-  preferences.end();
-
+  initialisation();
+  get_from_nvs();
 
   while (!Serial);
   SPI.begin();
@@ -295,16 +298,16 @@ void checkTime() {
 
     struct tm timeinfo;
     if (!getLocalTime(&timeinfo)) {
-        Serial.println("Échec de l'obtention de l'heure");
-        return;
+      Serial.println("Échec de l'obtention de l'heure");
+      return;
     }
 
     int heure = timeinfo.tm_hour;
     Serial.printf("Heure actuelle : %02d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
     if (heure >= 8 && heure < 20) {
-        Serial.println("lecture de badge activée");
-        lecturebadge = true;
+      Serial.println("lecture de badge activée");
+      lecturebadge = true;
     } else {
         Serial.println("lecture de badge désactivée");
         lecturebadge = false;
@@ -357,7 +360,7 @@ void loop()
       String uid = getUIDDecimal(mfrc522);
     //  mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
       Serial.println(uid);
-      api("check_badge?badge_id=", uid);
+      api(uid);
     }
 
     // si badge n'est plus detectée
