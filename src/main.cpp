@@ -9,6 +9,7 @@
 #include <ArduinoNvs.h>
 #include <aes/esp_aes.h>
 #include <string.h>
+#include "time.h"
 
 #define SSID "Freebox-58BA7C"
 #define PASSWD "ingest&-ferita-oblinito@-aquati"
@@ -94,6 +95,14 @@ const char* server_cert = \
 MFRC522 mfrc522(SS_PIN, RST_PIN); // Creation de l'instance MFRC522
 Preferences preferences;
 
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 3600; // UTC+1 (ajustez selon votre fuseau horaire)
+const int   daylightOffset_sec = 3600; // Ajustement pour l'heure d'été
+
+unsigned long lastTimeCheck = millis();
+const long interval = 60000;
+bool lecturebadge = false ;
+
 bool rfid_tag_present_prev = false;
 bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
@@ -102,6 +111,8 @@ char plaintext[256];
 char encrypted[256];
 char decrypted[256];
 uint8_t jsp[256];
+
+
 
 String getUIDDecimal(MFRC522 &mfrc522) {
   String uidString = "";
@@ -242,6 +253,8 @@ void decrypt()
 void setup()
 {
   Serial.begin(115200);
+  delay(100);
+  lastTimeCheck = millis() - interval;
   //NVS
   preferences.begin("myApp", false);
   encrypt();
@@ -271,56 +284,90 @@ void setup()
       Serial.print("WiFi Error");
   }
   Serial.println("WiFi connecté !");
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 }
+
+
+void checkTime() {
+  if (millis() - lastTimeCheck > interval) {  // Vérification après 60 secondes
+    lastTimeCheck = millis();  // Mise à jour du dernier temps de vérification
+    Serial.println("DEBUG: Interval atteint, mise à jour de l'heure");
+
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo)) {
+        Serial.println("Échec de l'obtention de l'heure");
+        return;
+    }
+
+    int heure = timeinfo.tm_hour;
+    Serial.printf("Heure actuelle : %02d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+    if (heure >= 8 && heure < 20) {
+        Serial.println("lecture de badge activée");
+        lecturebadge = true;
+    } else {
+        Serial.println("lecture de badge désactivée");
+        lecturebadge = false;
+    }
+  }
+}
+
 
 void loop()
 {
-  rfid_tag_present_prev = rfid_tag_present;
+  checkTime();
 
-  _rfid_error_counter += 1;
-  if (_rfid_error_counter > 2)
-  {
-    _tag_found = false;
-  }
+  if (lecturebadge == true) {
+    rfid_tag_present_prev = rfid_tag_present;
 
-  // Detect Tag without looking for collisions
-  byte bufferATQA[2];
-  byte bufferSize = sizeof(bufferATQA);
-
-  // Reset baud rates
-  mfrc522.PCD_WriteRegister(mfrc522.TxModeReg, 0x00);
-  mfrc522.PCD_WriteRegister(mfrc522.RxModeReg, 0x00);
-  // Reset ModWidthReg
-  mfrc522.PCD_WriteRegister(mfrc522.ModWidthReg, 0x26);
-
-  MFRC522::StatusCode result = mfrc522.PICC_RequestA(bufferATQA, &bufferSize);
-
-  if (result == mfrc522.STATUS_OK)
-  {
-    if (!mfrc522.PICC_ReadCardSerial())
-    { // Since a PICC placed get Serial and continue
-      return;
+    _rfid_error_counter += 1;
+    if (_rfid_error_counter > 2)
+    {
+      _tag_found = false;
     }
-    _rfid_error_counter = 0;
-    _tag_found = true;
-  }
 
-  rfid_tag_present = _tag_found;
+    // Detect Tag without looking for collisions
+    byte bufferATQA[2];
+    byte bufferSize = sizeof(bufferATQA);
 
-  // si badge detectée
-  if (rfid_tag_present && !rfid_tag_present_prev)
-  {
-    Serial.println("Tag found");
-    String uid = getUIDDecimal(mfrc522);
-  //  mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
-    Serial.println(uid);
-    api("check_badge?badge_id=", uid);
-  }
+    // Reset baud rates
+    mfrc522.PCD_WriteRegister(mfrc522.TxModeReg, 0x00);
+    mfrc522.PCD_WriteRegister(mfrc522.RxModeReg, 0x00);
+    // Reset ModWidthReg
+    mfrc522.PCD_WriteRegister(mfrc522.ModWidthReg, 0x26);
 
-  // si badge n'est plus detectée
-  if (!rfid_tag_present && rfid_tag_present_prev)
-  {
-    Serial.println("Tag gone");
+    MFRC522::StatusCode result = mfrc522.PICC_RequestA(bufferATQA, &bufferSize);
+
+    if (result == mfrc522.STATUS_OK)
+    {
+      if (!mfrc522.PICC_ReadCardSerial())
+      { // Since a PICC placed get Serial and continue
+        return;
+      }
+      _rfid_error_counter = 0;
+      _tag_found = true;
+    }
+
+    rfid_tag_present = _tag_found;
+
+    // si badge detectée
+    if (rfid_tag_present && !rfid_tag_present_prev)
+    {
+      Serial.println("Tag found");
+      String uid = getUIDDecimal(mfrc522);
+    //  mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
+      Serial.println(uid);
+      api("check_badge?badge_id=", uid);
+    }
+
+    // si badge n'est plus detectée
+    if (!rfid_tag_present && rfid_tag_present_prev)
+    {
+      Serial.println("Tag gone");
+    }
+    delay(100);
+  } else {
+    Serial.println("lecture de badge désactivée");
+    delay(3000);
   }
-  delay(100);
 }
