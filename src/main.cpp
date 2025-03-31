@@ -10,8 +10,8 @@
 #include <aes/esp_aes.h>
 #include <string.h>
 
-#define SSID "Freebox-05E6B9"
-#define PASSWD "attractam.?-mordeto5?-incurrite-apiciano"
+#define SSID "Freebox-58BA7C"
+#define PASSWD "ingest&-ferita-oblinito@-aquati"
 #define URL "https://guardia-api.iadjedj.ovh/"  // 
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
@@ -98,9 +98,9 @@ bool rfid_tag_present_prev = false;
 bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
 bool _tag_found = false;
-char plaintext[500];
-char encrypted[500];
-char decrypted[500];
+char plaintext[256];
+char encrypted[256];
+char decrypted[256];
 uint8_t jsp[256];
 
 String getUIDDecimal(MFRC522 &mfrc522) {
@@ -209,9 +209,15 @@ void encrypt()
     esp_aes_setkey(&ctx, key, 256);
     
     esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, sizeof(plaintext), iv, (uint8_t*)plaintext, (uint8_t*)encrypted);
-    printf("Decrypted text: %s\n", plaintext);
+    printf("Plaintext text: %s\n", plaintext);
     printf("encrypted text: %s\n", encrypted);
     esp_aes_free(&ctx);
+    int i;
+    for ( i = 0; i < 128; i++ )
+    {
+      printf( "%02x[%c]%c", encrypted[i], (encrypted[i] > 31) ? encrypted[i] : ' ', ((i & 0xf) != 0xf) ? ' ' : '\n' );
+    }
+    printf( "\n" );
 }
 void decrypt()
 {
@@ -238,11 +244,11 @@ void setup()
   Serial.begin(115200);
   //NVS
   preferences.begin("myApp", false);
-  //encrypt();
-  //preferences.putString("token", encrypted);
+  encrypt();
+  preferences.putString("token", encrypted);
   String token = preferences.getString("token", "pas_de_token");
   Serial.println(token);
-
+  
   memcpy(jsp, token.c_str(), token.length());  // Copier la chaîne en binaire
   
   Serial.println("Données chiffrées récupérées :");
