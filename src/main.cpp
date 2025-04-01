@@ -11,8 +11,6 @@
 #include <string.h>
 #include "time.h"
 
-#define SSID "Freebox-58BA7C"
-#define PASSWD "ingest&-ferita-oblinito@-aquati"
 #define URL "https://guardia-api.iadjedj.ovh/check_badge?badge_id="  // 
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
@@ -93,7 +91,7 @@ const char* server_cert = \
 
 // INITIALISATION DES VARIABLES | TABLEAUX | INSTANCES :
 
-MFRC522 mfrc522(SS_PIN, RST_PIN); // Creation de l'instance MFRC522
+MFRC522 mfrc522(SS_PIN, RST_PIN);
 Preferences preferences;
 
 const char* ntpServer = "pool.ntp.org";
@@ -109,10 +107,8 @@ bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
 bool _tag_found = false;
 
-char plaintext[256];
+// multiple de 16 obligatoire : 
 char encrypted[256];
-char decrypted[256];
-
 
 // TRANSFORME ID HEXADECIMAL EN DECIMAL :
 String getUIDDecimal(MFRC522 &mfrc522) {
@@ -147,14 +143,98 @@ void blinkred(int count)
   Blink(count, RLED);
 }
 
+
+void encrypt(const char * data)
+{
+  uint8_t key[32];
+  uint8_t iv[16];
+  char plaintext[256];
+  memset(iv, 0, sizeof(iv));
+  memset(key, 0, sizeof(key));
+  
+  memset(plaintext, 0, sizeof(plaintext));
+  strcpy(plaintext, data);
+  
+  esp_aes_context ctx;
+  esp_aes_init(&ctx);
+  esp_aes_setkey(&ctx, key, 256);
+  
+  esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, sizeof(plaintext), iv, (uint8_t*)plaintext, (uint8_t*)encrypted);
+  esp_aes_free(&ctx);
+}
+
+String decrypt(String input_text, int size)
+{
+  uint8_t key[32];
+  uint8_t iv[16];
+  uint8_t encrepted_text[size];
+  char result[size+1];
+  
+  memcpy(encrepted_text, input_text.c_str(), input_text.length());
+  memset(iv, 0, sizeof(iv));
+  memset(key, 0, sizeof(key));
+  
+  esp_aes_context ctx;
+  esp_aes_init(&ctx);
+  esp_aes_setkey(&ctx, key, 256);
+  esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, size, iv, (uint8_t*)encrepted_text, (uint8_t*)result);
+  esp_aes_free(&ctx);
+  printf("Decrypted text: %s\n", result);
+  return String(result);
+}
+
+void initialisation(){
+  encrypt("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk");
+  preferences.putString("token", encrypted);
+
+  encrypt("RouteurCadeau");
+  preferences.putString("SSID", encrypted);
+
+  encrypt("CadeauRouteur");
+  preferences.putString("PASSWD", encrypted);
+
+  encrypt("https://guardia-api.iadjedj.ovh/check_badge?badge_id=");
+  preferences.putString("URL", encrypted);
+
+}
+
+// CREATION DES STRUCTURE  POUR RECUP INFO DE NVS
+struct Credentials {
+  String ssid;
+  String passwd;
+};
+
+struct Credentials_jwt {
+  String url;
+  String jwt;
+};
+// RECUPERATION DES INFORMATION DE NVS 
+Credentials get_from_nvs_credit() {
+  preferences.begin("myApp", false);
+  String ssid = preferences.getString("SSID", "pas_de_token");
+  String passwd = preferences.getString("PASSWD", "pas_de_token");
+  preferences.end();
+
+  return {decrypt(ssid, 256), decrypt(passwd, 256)};
+}
+
+Credentials_jwt get_from_nvs_url_jwt() {
+  preferences.begin("myApp", false);
+  String token = preferences.getString("token", "pas_de_token");
+  String url = preferences.getString("URL", "pas_de_token");
+  preferences.end();
+
+  return {decrypt(url, 256), decrypt(token, 256)};
+}
+
 // CONNEXTION TO API :
 void api(String id) {
   WiFiClientSecure client;
   client.setCACert(server_cert);  // Certificat du serveur
-
+  Credentials_jwt creds = get_from_nvs_url_jwt();
   HTTPClient http;
   String resp;
-  String full_url = URL + id;
+  String full_url = creds.url + id;
 
   Serial.println("Tentative de connexion à : " + full_url);
 
@@ -167,7 +247,7 @@ void api(String id) {
 
   // Ajout du JWT Token dans l'en-tête
   
-  http.addHeader("Authorization", String("Bearer ") + decrypted);
+  http.addHeader("Authorization", String("Bearer ") + creds.jwt);
   http.addHeader("Content-Type", "application/json");
 
   int code = http.GET();  // Envoi de la requête GET
@@ -206,81 +286,20 @@ void api(String id) {
 
   http.end(); // connexion fermée
 }
-// "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk"
-void encrypt(const char * data)
-{
-    uint8_t key[32];
-    uint8_t iv[16];
-
-    memset(iv, 0, sizeof(iv));
-    memset(key, 0, sizeof(key));
-    
-    memset(plaintext, 0, sizeof(plaintext));
-    strcpy(plaintext, data);
-    
-    esp_aes_context ctx;
-    esp_aes_init(&ctx);
-    esp_aes_setkey(&ctx, key, 256);
-    
-    esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, sizeof(plaintext), iv, (uint8_t*)plaintext, (uint8_t*)encrypted);
-    esp_aes_free(&ctx);
-}
-void decrypt(String input_text, int size)
-{
-  uint8_t key[32];
-  uint8_t iv[16];
-  uint8_t encrepted_text[size];
-  char result[size];
-  
-  memcpy(encrepted_text, input_text.c_str(), input_text.length());
-  memset(iv, 0, sizeof(iv));
-  memset(key, 0, sizeof(key));
-  
-  esp_aes_context ctx;
-  esp_aes_init(&ctx);
-  esp_aes_setkey(&ctx, key, 256);
-  
-  esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, size, iv, (uint8_t*)encrepted_text, (uint8_t*)decrypted);
-  
-  printf("Decrypted text: %s\n", decrypted);
-  esp_aes_free(&ctx);
-}
-
-void get_from_nvs(){
-  preferences.begin("myApp", false);
-  
-  String token = preferences.getString("token", "pas_de_token");
-  decrypt(token, 256);
-  Serial.println(token);
-  preferences.end();
-}
-
-void initialisation(){
-  encrypt("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk");
-  preferences.putString("token", encrypted);
-  encrypt("Freebox-58BA7C");
-  preferences.putString("SSID", encrypted);
-  encrypt("ingest&-ferita-oblinito@-aquati");
-  preferences.putString("PASSWD", encrypted);
-  encrypt("https://guardia-api.iadjedj.ovh/check_badge?badge_id=");
-  preferences.putString("URL", encrypted);
-}
 
 void setup()
 {
   Serial.begin(115200);
   delay(100);
   lastTimeCheck = millis() - interval;
-  initialisation();
-  get_from_nvs();
-
+  Credentials creds = get_from_nvs_credit();
   while (!Serial);
   SPI.begin();
   mfrc522.PCD_Init(); // Init MFRC522
   pinMode(GLED, OUTPUT);
   pinMode(RLED, OUTPUT);
 
-  WiFi.begin(SSID, PASSWD);
+  WiFi.begin(creds.ssid, creds.passwd);
 
   while (WiFi.status() != WL_CONNECTED) {
       delay(500);
@@ -319,7 +338,6 @@ void checkTime() {
 void loop()
 {
   checkTime();
-
   if (lecturebadge == true) {
     rfid_tag_present_prev = rfid_tag_present;
 
