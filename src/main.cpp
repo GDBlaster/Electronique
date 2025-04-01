@@ -68,26 +68,25 @@ void blinkred(int count)
   Blink(count, RLED);
 }
 
+void mac_address(uint8_t *key) {
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+    // Compléter les 32 octets avec l'adresse MAC
+    for (int i = 0; i < 32; i++) {
+        key[i] = mac[i % 6];
+    }
+}
+
 String encrypt(const char *data)
 {
   uint8_t key[32];
   uint8_t iv[16];
   char plaintext[256];
   char encrypted[256];
-  uint8_t mac[6];
-  WiFi.macAddress(mac);
-
-  // Copier l'adresse MAC dans le début de la clé
-  for (int i = 0; i < 6; i++)
-  {
-    key[i] = mac[i];
-  }
-
-  // Compléter les 26 octets restants (par répétition de MAC ici)
-  for (int i = 6; i < 32; i++)
-  {
-    key[i] = mac[i % 6]; // Répétition de l'adresse MAC
-  }
+  
+  mac_address(key);
+  
+  
 
   Serial.println();
   memset(iv, 0, sizeof(iv));
@@ -110,20 +109,9 @@ String decrypt(String input_text, int size)
   uint8_t key[32];
   uint8_t iv[16];
   uint8_t encrepted_text[size];
-  uint8_t mac[6];
   char result[size + 1];
-  WiFi.macAddress(mac);
-
-  for (int i = 0; i < 6; i++)
-  {
-    key[i] = mac[i];
-  }
-
-  // Compléter les 26 octets restants (par répétition de MAC ici)
-  for (int i = 6; i < 32; i++)
-  {
-    key[i] = mac[i % 6]; // Répétition de l'adresse MAC
-  }
+  
+  mac_address(key);
 
   memcpy(encrepted_text, input_text.c_str(), input_text.length());
   memset(iv, 0, sizeof(iv));
