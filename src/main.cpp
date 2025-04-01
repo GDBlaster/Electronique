@@ -21,13 +21,13 @@
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 Preferences preferences;
 
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 3600; // UTC+1 (fuseau horaire)
-const int   daylightOffset_sec = 3600; // heure d'été
+const char *ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 3600;     // UTC+1 (fuseau horaire)
+const int daylightOffset_sec = 3600; // heure d'été
 
 unsigned long lastTimeCheck = millis();
 const long interval = 60000;
-bool lecturebadge = false ;
+bool lecturebadge = false;
 
 bool rfid_tag_present_prev = false;
 bool rfid_tag_present = false;
@@ -68,24 +68,39 @@ void blinkred(int count)
   Blink(count, RLED);
 }
 
-String encrypt(const char * data)
+String encrypt(const char *data)
 {
   uint8_t key[32];
   uint8_t iv[16];
   char plaintext[256];
   char encrypted[256];
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
 
+  // Copier l'adresse MAC dans le début de la clé
+  for (int i = 0; i < 6; i++)
+  {
+    key[i] = mac[i];
+  }
+
+  // Compléter les 26 octets restants (par répétition de MAC ici)
+  for (int i = 6; i < 32; i++)
+  {
+    key[i] = mac[i % 6]; // Répétition de l'adresse MAC
+  }
+
+  Serial.println();
   memset(iv, 0, sizeof(iv));
   memset(key, 0, sizeof(key));
-  
+
   memset(plaintext, 0, sizeof(plaintext));
   strcpy(plaintext, data);
-  
+
   esp_aes_context ctx;
   esp_aes_init(&ctx);
   esp_aes_setkey(&ctx, key, 256);
-  
-  esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, sizeof(plaintext), iv, (uint8_t*)plaintext, (uint8_t*)encrypted);
+
+  esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, sizeof(plaintext), iv, (uint8_t *)plaintext, (uint8_t *)encrypted);
   esp_aes_free(&ctx);
   return String(encrypted);
 }
@@ -95,22 +110,36 @@ String decrypt(String input_text, int size)
   uint8_t key[32];
   uint8_t iv[16];
   uint8_t encrepted_text[size];
-  char result[size+1];
-  
+  uint8_t mac[6];
+  char result[size + 1];
+  WiFi.macAddress(mac);
+
+  for (int i = 0; i < 6; i++)
+  {
+    key[i] = mac[i];
+  }
+
+  // Compléter les 26 octets restants (par répétition de MAC ici)
+  for (int i = 6; i < 32; i++)
+  {
+    key[i] = mac[i % 6]; // Répétition de l'adresse MAC
+  }
+
   memcpy(encrepted_text, input_text.c_str(), input_text.length());
   memset(iv, 0, sizeof(iv));
   memset(key, 0, sizeof(key));
-  
+
   esp_aes_context ctx;
   esp_aes_init(&ctx);
   esp_aes_setkey(&ctx, key, 256);
-  esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, size, iv, (uint8_t*)encrepted_text, (uint8_t*)result);
+  esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, size, iv, (uint8_t *)encrepted_text, (uint8_t *)result);
   esp_aes_free(&ctx);
   printf("Decrypted text: %s\n", result);
   return String(result);
 }
 
-void initialisation(){
+void initialisation()
+{
   String jwt_enc = encrypt("khgyuikjhgytujnbhgtyuijh");
   String ssid_enc = encrypt("Suu");
   String passwd_enc = encrypt("popallec");
@@ -125,17 +154,20 @@ void initialisation(){
 }
 
 // CREATION DES STRUCTURE  POUR RECUP INFO DE NVS
-struct Credentials {
+struct Credentials
+{
   String ssid;
   String passwd;
 };
 
-struct Credentials_jwt {
+struct Credentials_jwt
+{
   String url;
   String jwt;
 };
-// RECUPERATION DES INFORMATION DE NVS 
-Credentials get_from_nvs_credit() {
+// RECUPERATION DES INFORMATION DE NVS
+Credentials get_from_nvs_credit()
+{
   preferences.begin("myApp", false);
   String ssid = preferences.getString("SSID", "pas_de_token");
   String passwd = preferences.getString("PASSWD", "pas_de_token");
@@ -144,7 +176,8 @@ Credentials get_from_nvs_credit() {
   return {decrypt(ssid, 256), decrypt(passwd, 256)};
 }
 
-Credentials_jwt get_from_nvs_url_jwt() {
+Credentials_jwt get_from_nvs_url_jwt()
+{
   preferences.begin("myApp", false);
   String token = preferences.getString("token", "pas_de_token");
   String url = preferences.getString("URL", "pas_de_token");
@@ -164,7 +197,6 @@ void api(String id)
   JsonDocument doc;
   doc["token"] = creds.jwt;
   doc["id"] = id;
-
 
   String jsonPayload;
   serializeJson(doc, jsonPayload);
@@ -194,10 +226,11 @@ void api(String id)
       return;
     }
 
-    const char* level = doc["level"];  // "unauthorized", "user", "admin"
-    http.end();  // connexion fermée
+    const char *level = doc["level"]; // "unauthorized", "user", "admin"
+    http.end();                       // connexion fermée
 
-    if (level && (strcmp(level, "user") == 0 || strcmp(level, "admin") == 0)) {
+    if (level && (strcmp(level, "user") == 0 || strcmp(level, "admin") == 0))
+    {
       Serial.println("✅ Passage autorisé !");
       blinkgreen(3);
     }
@@ -220,12 +253,10 @@ void setup()
 {
   Serial.begin(115200);
   delay(100);
-
+  // initialisation();
   lastTimeCheck = millis() - interval;
   Credentials creds = get_from_nvs_credit();
-
-  initialisation();
-
+  
   while (!Serial);
   SPI.begin();
   mfrc522.PCD_Init(); // Init MFRC522
@@ -234,21 +265,25 @@ void setup()
 
   WiFi.begin(creds.ssid, creds.passwd);
 
-  while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      Serial.print("WiFi Error");
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print("Erreur Wifi");
   }
   Serial.println("WiFi connecté !");
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 }
 
-void checkTime() {
-  if (millis() - lastTimeCheck > interval) {  // Vérification après 60 secondes
-    lastTimeCheck = millis();  // Mise à jour du dernier temps de vérification
+void checkTime()
+{
+  if (millis() - lastTimeCheck > interval)
+  {                           // Vérification après 60 secondes
+    lastTimeCheck = millis(); // Mise à jour du dernier temps de vérification
     Serial.println("DEBUG: Interval atteint, mise à jour de l'heure");
 
     struct tm timeinfo;
-    if (!getLocalTime(&timeinfo)) {
+    if (!getLocalTime(&timeinfo))
+    {
       Serial.println("Échec de l'obtention de l'heure");
       return;
     }
@@ -256,12 +291,15 @@ void checkTime() {
     int heure = timeinfo.tm_hour;
     Serial.printf("Heure actuelle : %02d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
-    if (heure >= 8 && heure < 20) {
+    if (heure >= 8 && heure < 19)
+    {
       Serial.println("lecture de badge activée");
       lecturebadge = true;
-    } else {
-        Serial.println("lecture de badge désactivée");
-        lecturebadge = false;
+    }
+    else
+    {
+      Serial.println("lecture de badge désactivée");
+      lecturebadge = false;
     }
   }
 }
@@ -269,7 +307,8 @@ void checkTime() {
 void loop()
 {
   checkTime();
-  if (lecturebadge == true) {
+  if (lecturebadge == true)
+  {
     rfid_tag_present_prev = rfid_tag_present;
 
     _rfid_error_counter += 1;
@@ -307,7 +346,7 @@ void loop()
     {
       Serial.println("Tag found");
       String uid = getUIDDecimal(mfrc522);
-    //  mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
+      //  mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
       Serial.println(uid);
       api(uid);
     }
@@ -318,7 +357,9 @@ void loop()
       Serial.println("Tag gone");
     }
     delay(100);
-  } else {
+  }
+  else
+  {
     Serial.println("lecture de badge désactivée");
     delay(3000);
   }
