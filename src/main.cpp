@@ -182,8 +182,8 @@ String decrypt(String input_text, int size)
 
 void initialisation(){
   String jwt_enc = encrypt("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk");
-  String ssid_enc = encrypt("RouteurCadeau");
-  String passwd_enc = encrypt("CadeauRouteur");
+  String ssid_enc = encrypt("Suu");
+  String passwd_enc = encrypt("popallec");
   String url_enc = encrypt("https://guardia-api.iadjedj.ovh/check_badge?badge_id=");
 
   preferences.begin("myApp", false);
@@ -291,7 +291,7 @@ void setup()
   lastTimeCheck = millis() - interval;
   Credentials creds = get_from_nvs_credit();
 
-  // initialisation();
+  initialisation();
 
   while (!Serial);
   SPI.begin();
