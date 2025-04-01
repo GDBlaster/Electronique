@@ -17,8 +17,6 @@
 #define GLED            D2
 #define RLED            D1
 
-
-
 const char* server_cert = \
 "-----BEGIN CERTIFICATE-----\n" \
 "MIIDwjCCA0igAwIBAgISBTuWfib9kK2yVwJjhzFfxodtMAoGCCqGSM49BAMDMDIxCzAJBgNVBAYT\n" \
@@ -108,7 +106,7 @@ int _rfid_error_counter = 0;
 bool _tag_found = false;
 
 // multiple de 16 obligatoire : 
-char encrypted[256];
+
 
 // TRANSFORME ID HEXADECIMAL EN DECIMAL :
 String getUIDDecimal(MFRC522 &mfrc522) {
@@ -143,12 +141,13 @@ void blinkred(int count)
   Blink(count, RLED);
 }
 
-
-void encrypt(const char * data)
+String encrypt(const char * data)
 {
   uint8_t key[32];
   uint8_t iv[16];
   char plaintext[256];
+  char encrypted[256];
+
   memset(iv, 0, sizeof(iv));
   memset(key, 0, sizeof(key));
   
@@ -161,6 +160,7 @@ void encrypt(const char * data)
   
   esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, sizeof(plaintext), iv, (uint8_t*)plaintext, (uint8_t*)encrypted);
   esp_aes_free(&ctx);
+  return String(encrypted);
 }
 
 String decrypt(String input_text, int size)
@@ -184,18 +184,17 @@ String decrypt(String input_text, int size)
 }
 
 void initialisation(){
-  encrypt("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk");
-  preferences.putString("token", encrypted);
+  String jwt_enc = encrypt("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc0OTA2ODExM30.uFCmXxspAYTXjraJ2MrLzdzLh8K2aMjLp2ETARp5_bk");
+  String ssid_enc = encrypt("RouteurCadeau");
+  String passwd_enc = encrypt("CadeauRouteur");
+  String url_enc = encrypt("https://guardia-api.iadjedj.ovh/check_badge?badge_id=");
 
-  encrypt("RouteurCadeau");
-  preferences.putString("SSID", encrypted);
-
-  encrypt("CadeauRouteur");
-  preferences.putString("PASSWD", encrypted);
-
-  encrypt("https://guardia-api.iadjedj.ovh/check_badge?badge_id=");
-  preferences.putString("URL", encrypted);
-
+  preferences.begin("myApp", false);
+  preferences.putString("token", jwt_enc);
+  preferences.putString("SSID", ssid_enc);
+  preferences.putString("PASSWD", passwd_enc);
+  preferences.putString("URL", url_enc);
+  preferences.end();
 }
 
 // CREATION DES STRUCTURE  POUR RECUP INFO DE NVS
@@ -291,8 +290,12 @@ void setup()
 {
   Serial.begin(115200);
   delay(100);
+
   lastTimeCheck = millis() - interval;
   Credentials creds = get_from_nvs_credit();
+
+  // initialisation();
+
   while (!Serial);
   SPI.begin();
   mfrc522.PCD_Init(); // Init MFRC522
@@ -308,7 +311,6 @@ void setup()
   Serial.println("WiFi connecté !");
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 }
-
 
 void checkTime() {
   if (millis() - lastTimeCheck > interval) {  // Vérification après 60 secondes
@@ -333,7 +335,6 @@ void checkTime() {
     }
   }
 }
-
 
 void loop()
 {
