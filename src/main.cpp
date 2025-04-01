@@ -10,11 +10,16 @@
 #include <aes/esp_aes.h>
 #include <string.h>
 #include "time.h"
- 
-#define RST_PIN         D6          // Configurable, see typical pin layout above
-#define SS_PIN          D4       // Configurable, see typical pin layout above
-#define GLED            D2
-#define RLED            D1
+
+#define SSID "RouteurCadeau"
+#define PASSWD "CadeauRouteur"
+#define URL "http://7b3e-82-66-23-99.ngrok-free.app" //
+#define APITOKEN "khgyuikjhgytujnbhgtyuijh"
+#define RST_PIN D6 // Configurable, see typical pin layout above
+#define SS_PIN D4  // Configurable, see typical pin layout above
+#define GLED D2
+#define RLED D1
+
 
 const char* server_cert = \
 "-----BEGIN CERTIFICATE-----\n" \
@@ -104,12 +109,12 @@ bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
 bool _tag_found = false;
 
-
-// TRANSFORME ID HEXADECIMAL EN DECIMAL :
-String getUIDDecimal(MFRC522 &mfrc522) {
+String getUIDDecimal(MFRC522 &mfrc522)
+{
   String uidString = "";
-  for (byte i = 0; i < mfrc522.uid.size; i++) {
-      uidString += String(mfrc522.uid.uidByte[i], DEC);
+  for (byte i = 0; i < mfrc522.uid.size; i++)
+  {
+    uidString += String(mfrc522.uid.uidByte[i], DEC);
   }
   return uidString;
 }
@@ -223,40 +228,41 @@ Credentials_jwt get_from_nvs_url_jwt() {
   return {decrypt(url, 256), decrypt(token, 256)};
 }
 
-// CONNEXTION TO API :
-void api(String id) {
-  WiFiClientSecure client;
-  client.setCACert(server_cert);  // Certificat du serveur
-  Credentials_jwt creds = get_from_nvs_url_jwt();
+void api(String fin_url, String id)
+{
+  Serial.println(URL + fin_url + id);
   HTTPClient http;
   String resp;
-  String full_url = creds.url + id;
+  String full_url = String(URL) + fin_url;
 
-  Serial.println("Tentative de connexion à : " + full_url);
+  JsonDocument doc;
+  doc["token"] = APITOKEN;
+  doc["id"] = id;
 
-  if (!http.begin(client, full_url)) {  
-    Serial.println("❌ Échec de la connexion HTTPS !");
-    return;
-  }
-  
-  Serial.println("✅ Connexion HTTPS établie !");
 
-  // Ajout du JWT Token dans l'en-tête
-  
-  http.addHeader("Authorization", String("Bearer ") + creds.jwt);
+  String jsonPayload;
+  serializeJson(doc, jsonPayload);
+
+  Serial.println(jsonPayload);
+
+  http.begin(full_url);
   http.addHeader("Content-Type", "application/json");
 
-  int code = http.GET();  // Envoi de la requête GET
+  int code = http.sendRequest("POST", jsonPayload);
 
-  if (code == HTTP_CODE_OK) {
+  Serial.println(code);
+
+  if (code == HTTP_CODE_OK)
+  {
     resp = http.getString();
     Serial.println("Réponse reçue : " + resp);
 
-    StaticJsonDocument<200> doc;
-    DeserializationError error = deserializeJson(doc, resp);
+    JsonDocument responseDoc;
+    DeserializationError error = deserializeJson(responseDoc, resp);
 
-    if (error) {
-      Serial.print("❌ Erreur JSON : ");
+    if (error)
+    {
+      Serial.print("deserializeJson() failed: ");
       Serial.println(error.c_str());
       http.end();
       return;
@@ -268,15 +274,16 @@ void api(String id) {
     if (level && (strcmp(level, "user") == 0 || strcmp(level, "admin") == 0)) {
       Serial.println("✅ Passage autorisé !");
       blinkgreen(3);
-    } else {
-      Serial.println("❌ Accès refusé : " + String(level));
+    }
+    else
+    {
+      Serial.println(level);
       blinkred(3);
     }
-
-  } else {
-    Serial.print("❌ Erreur HTTP : ");
-    Serial.println(code);
-    Serial.println(http.getString());
+  }
+  else
+  {
+    Serial.println("Badge non connu");
     blinkred(3);
   }
 
@@ -376,7 +383,7 @@ void loop()
       String uid = getUIDDecimal(mfrc522);
     //  mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
       Serial.println(uid);
-      api(uid);
+      api("/check", uid);
     }
 
     // si badge n'est plus detectée
