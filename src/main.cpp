@@ -10,8 +10,7 @@
 #include <aes/esp_aes.h>
 #include <string.h>
 #include "time.h"
-
-#define URL "https://guardia-api.iadjedj.ovh/check_badge?badge_id="  // 
+ 
 #define RST_PIN         D6          // Configurable, see typical pin layout above
 #define SS_PIN          D4       // Configurable, see typical pin layout above
 #define GLED            D2
@@ -104,8 +103,6 @@ bool rfid_tag_present_prev = false;
 bool rfid_tag_present = false;
 int _rfid_error_counter = 0;
 bool _tag_found = false;
-
-// multiple de 16 obligatoire : 
 
 
 // TRANSFORME ID HEXADECIMAL EN DECIMAL :
