@@ -214,17 +214,19 @@ void api(String id)
       return;
     }
 
-    const char *level = doc["level"]; // "unauthorized", "user", "admin"
+    const char* permission = responseDoc["permission"]; // "unauthorized", "user", "admin"
     http.end();                       // connexion fermée
 
-    if (level && (strcmp(level, "user") == 0 || strcmp(level, "admin") == 0))
+    Serial.println(permission);
+
+    if (permission && (strcmp(permission, "user") == 0 || strcmp(permission, "admin") == 0))
     {
       Serial.println("✅ Passage autorisé !");
       blinkgreen(3);
     }
     else
     {
-      Serial.println(level);
+      Serial.println(permission);
       blinkred(3);
     }
   }
