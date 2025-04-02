@@ -4,3 +4,4 @@
 .vscode/launch.json
 .vscode/ipch
 /api/node_modules/
+/api/logs.json

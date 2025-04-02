@@ -1,10 +1,27 @@
 const express = require("express");
+const fs = require("fs");
 const db = require('./db.json');
-
+const cors = require("cors");
+const LOG_FILE = "logs.json";
 
 const app = express();
 app.use(express.json());
+app.use(cors({ origin: "*" }));
 const PORT = process.env.PORT || 3000;
+
+function logToFile(entry) {
+    let logs = { entries: [] };
+    if (fs.existsSync(LOG_FILE)) {
+        try {
+            logs = JSON.parse(fs.readFileSync(LOG_FILE, "utf8"));
+        } catch (error) {
+            console.error("Error parsing logs.json, resetting log file.");
+        }
+    }
+    logs.entries.push(entry);
+    fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2));
+    console.log(logs);
+}
 
 app.listen(PORT, () => {
     console.log("server listening on port", PORT);
@@ -19,18 +36,41 @@ app.get("/ping", (request, response) => {
 });
 
 app.post("/check", (request, response) => {
-    console.log(request.body);
-    if (db.tokens.includes(request.body.token)) {
-        if (db.badges[request.body.id] != undefined) {
-            var out = {
-                "permission" : db.badges[request.body.id],
-            }
-            response.send(out)
-        } else {
-            response.status(404).json({error : "Not Found"});
-        };
-    } else {
-        response.status(403).json({ error : "Forbiden"});
-    };
+    const { token, id } = request.body;
+    const timestamp = new Date().toISOString();
+    let userLevel = "none";
+    let status;
 
+    if (db.tokens.includes(token)) {
+        if (db.badges[id] !== undefined) {
+            userLevel = db.badges[id];
+            response.send({ "permission": userLevel });
+            status = 200;
+        } else {
+            response.status(404).json({ error: "Not Found" });
+            status = 404;
+        }
+    } else {
+        response.status(403).json({ error: "Forbidden" });
+        status = 403;
+    }
+
+    logToFile({ token, id, timestamp, userLevel, status });
 });
+
+app.get("/logs", (req, res) => {
+    const token = req.query.token;  // Get the token from the URL
+    if (!token || !db.tokens.includes(token)) {
+        return res.status(403).json({ error: "Forbidden: Invalid token" });
+    }
+
+    fs.readFile(LOG_FILE, "utf8", (err, data) => {
+        if (err) {
+            res.status(500).send("Error reading logs");
+        } else {
+            res.setHeader("Content-Type", "application/json");
+            res.send(data);
+        }
+    });
+});
+

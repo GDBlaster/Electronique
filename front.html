@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Logs Viewer</title>
+    <script>
+        function setToken() {
+            const token = document.getElementById("tokenInput").value;
+            document.cookie = `token=${token}; path=/`;
+            fetchLogs();
+        }
+
+        function fetchLogs() {
+            const token = document.getElementById("tokenInput").value;
+            fetch(`http://localhost:3000/logs?token=${encodeURIComponent(token)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Forbidden: Invalid token");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById("logs").textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    document.getElementById("logs").textContent = error.message;
+                });
+        }
+    </script>
+</head>
+
+<body>
+    <h1>Logs Viewer</h1>
+    <label for="tokenInput">Enter Token:</label>
+    <input type="text" id="tokenInput">
+    <button onclick="setToken()">Submit</button>
+    <h2>Logs:</h2>
+    <pre id="logs">(Logs will appear here)</pre>
+</body>
+
+</html>
