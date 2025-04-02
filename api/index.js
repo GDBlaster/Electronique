@@ -1,9 +1,12 @@
 const express = require("express");
+const fs = require("fs");
 const db = require('./db.json');
+const cors = require("cors");
 const LOG_FILE = "logs.json";
 
 const app = express();
 app.use(express.json());
+app.use(cors({ origin: "*" }));
 const PORT = process.env.PORT || 3000;
 
 function logToFile(entry) {
@@ -17,6 +20,7 @@ function logToFile(entry) {
     }
     logs.entries.push(entry);
     fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2));
+    console.log(logs);
 }
 
 app.listen(PORT, () => {
@@ -55,6 +59,11 @@ app.post("/check", (request, response) => {
 });
 
 app.get("/logs", (req, res) => {
+    const token = req.query.token;  // Get the token from the URL
+    if (!token || !db.tokens.includes(token)) {
+        return res.status(403).json({ error: "Forbidden: Invalid token" });
+    }
+
     fs.readFile(LOG_FILE, "utf8", (err, data) => {
         if (err) {
             res.status(500).send("Error reading logs");
@@ -64,3 +73,4 @@ app.get("/logs", (req, res) => {
         }
     });
 });
+
